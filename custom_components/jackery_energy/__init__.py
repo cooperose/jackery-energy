@@ -15,7 +15,7 @@ from .logic import classify, unique_slugs
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.IMAGE]
 
 type JackeryConfigEntry = ConfigEntry[JackeryCoordinator]
 

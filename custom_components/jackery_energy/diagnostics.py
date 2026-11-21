@@ -16,7 +16,8 @@ from .api import JackeryError
 
 TO_REDACT = {
     CONF_USERNAME, CONF_PASSWORD, "devSn", "deviceSn", "sn", "mac", "wip", "wname",
-    "token", "userId", "bindUserId", "account", "userName", "email",
+    "token", "userId", "bindUserId", "account", "userName", "email", "ac1_sn", "ac2_sn",
+    "bluetoothKey",
 }
 
 

@@ -36,7 +36,7 @@ from .binary_sensor import BINARY_PROP_KEYS
 from .const import DOMAIN, MANUFACTURER
 from .coordinator import JackeryCoordinator, JackeryDevice
 from .entity import JackeryDeviceEntity, JackerySystemEntity
-from .logic import BATTERY_STATES, FRIENDLY_KEYS, POWER_SOURCES, EnergyAccumulator, num
+from .logic import BATTERY_STATES, FRIENDLY_KEYS, HIDDEN_KEYS, POWER_SOURCES, EnergyAccumulator, num
 
 M = SensorStateClass.MEASUREMENT
 W = UnitOfPower.WATT
@@ -98,6 +98,34 @@ PROP_SENSORS: tuple[JackerySensorDescription, ...] = (
     JackerySensorDescription(key="pal", name="Power alarm", entity_category=_DIAG),
     JackerySensorDescription(key="wsig", name="Wi-Fi signal", entity_category=_DIAG,
                              state_class=M),
+    # --- Smart Transfer Switch: connected power station ports (from ac1 / ac2)
+    JackerySensorDescription(key="ac1_rb", name="Port 1 battery", native_unit_of_measurement=PERCENTAGE,
+                             device_class=SensorDeviceClass.BATTERY, state_class=M),
+    _power("ac1_ip", "Port 1 input power"),
+    _power("ac1_op", "Port 1 output power"),
+    JackerySensorDescription(key="ac1_ot", name="Port 1 time remaining", scale=10, zero_is_none=True,
+                             native_unit_of_measurement=UnitOfTime.HOURS,
+                             device_class=SensorDeviceClass.DURATION, state_class=M),
+    JackerySensorDescription(key="ac2_rb", name="Port 2 battery", native_unit_of_measurement=PERCENTAGE,
+                             device_class=SensorDeviceClass.BATTERY, state_class=M),
+    _power("ac2_ip", "Port 2 input power"),
+    _power("ac2_op", "Port 2 output power"),
+    # --- Smart Transfer Switch lifetime counters (units not yet confirmed)
+    JackerySensorDescription(key="dg", name="Grid energy counter", icon="mdi:transmission-tower",
+                             state_class=SensorStateClass.TOTAL_INCREASING),
+    JackerySensorDescription(key="dh", name="Home energy counter", icon="mdi:home-lightning-bolt",
+                             state_class=SensorStateClass.TOTAL_INCREASING),
+    JackerySensorDescription(key="ds", name="Solar energy counter", icon="mdi:solar-power",
+                             state_class=SensorStateClass.TOTAL_INCREASING),
+    JackerySensorDescription(key="de", name="Battery energy counter", icon="mdi:home-battery",
+                             state_class=SensorStateClass.TOTAL_INCREASING),
+    # --- Smart Transfer Switch fault block (fz)
+    JackerySensorDescription(key="fz_ec1", name="Error code 1", entity_category=_DIAG),
+    JackerySensorDescription(key="fz_ec2", name="Error code 2", entity_category=_DIAG),
+    JackerySensorDescription(key="fz_gs", name="Grid status code", entity_category=_DIAG),
+    JackerySensorDescription(key="fz_es", name="Error status", entity_category=_DIAG),
+    JackerySensorDescription(key="fz_bs1", name="Battery status 1", entity_category=_DIAG),
+    JackerySensorDescription(key="fz_bs2", name="Battery status 2", entity_category=_DIAG),
 )
 
 # --- computed per power station
@@ -113,6 +141,10 @@ DERIVED_SENSORS: tuple[JackerySensorDescription, ...] = (
     JackerySensorDescription(key="total_capacity", name="Total capacity", entity_category=_DIAG,
                              native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
                              device_class=SensorDeviceClass.ENERGY_STORAGE),
+    JackerySensorDescription(key="runtime", name="Estimated runtime", icon="mdi:timer-sand",
+                             native_unit_of_measurement=UnitOfTime.HOURS,
+                             device_class=SensorDeviceClass.DURATION, state_class=M,
+                             suggested_display_precision=1),
     JackerySensorDescription(key="battery_pack_count", name="Expansion battery packs",
                              entity_category=_DIAG, icon="mdi:battery-plus"),
     JackerySensorDescription(key="battery_state", name="Battery state", translation_key="battery_state",
@@ -148,6 +180,12 @@ SYSTEM_SENSORS: tuple[JackerySensorDescription, ...] = (
     JackerySensorDescription(key="total_capacity", name="Total capacity",
                              native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
                              device_class=SensorDeviceClass.ENERGY_STORAGE),
+    JackerySensorDescription(key="home_backup_runtime", name="Home backup runtime", icon="mdi:timer-sand",
+                             native_unit_of_measurement=UnitOfTime.HOURS,
+                             device_class=SensorDeviceClass.DURATION, state_class=M,
+                             suggested_display_precision=1),
+    _power("home_backup_load", "Home backup load", icon="mdi:home-lightning-bolt-outline"),
+    _power("home_backup_drain", "Home backup battery drain", icon="mdi:battery-arrow-down-outline"),
     JackerySensorDescription(key="devices_online", name="Devices online", icon="mdi:lan-connect",
                              state_class=M),
     JackerySensorDescription(key="power_source", name="Power source", translation_key="power_source",
@@ -168,7 +206,7 @@ PACK_SENSORS: tuple[JackerySensorDescription, ...] = (
     PROP_SENSORS[8], PROP_SENSORS[9],
 )
 
-KNOWN_KEYS = {d.key for d in PROP_SENSORS} | BINARY_PROP_KEYS | {"bs"}
+KNOWN_KEYS = {d.key for d in PROP_SENSORS} | BINARY_PROP_KEYS | {"bs"} | HIDDEN_KEYS
 
 
 def _scaled(value: Any, d: JackerySensorDescription) -> Any:
@@ -335,10 +373,10 @@ class RawPropertiesSensor(JackeryDeviceEntity, SensorEntity):
             "online": self.dev_data.get("online"),
             "error": self.dev_data.get("error"),
             "device_list_entry": {k: v for k, v in self.dev.raw.items()
-                                  if k not in ("devSn", "deviceSn", "mac")},
+                                  if k not in ("devSn", "deviceSn", "mac", "bluetoothKey", "userId")},
         }
         for k, v in (self.dev_data.get("props") or {}).items():
-            if k not in ("mac", "wip", "wname"):
+            if k not in HIDDEN_KEYS and not isinstance(v, dict):
                 attrs[f"p_{k}"] = v if not isinstance(v, (dict, list)) else json.dumps(v)[:500]
         return attrs
 

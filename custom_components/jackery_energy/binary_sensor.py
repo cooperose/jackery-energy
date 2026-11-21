@@ -34,8 +34,25 @@ PROP_BINARIES: tuple[BinarySensorEntityDescription, ...] = (
                                   entity_category=EntityCategory.DIAGNOSTIC),
     BinarySensorEntityDescription(key="wss", name="Wireless charging", device_class=PWR,
                                   entity_category=EntityCategory.DIAGNOSTIC),
+    # Smart Transfer Switch
+    BinarySensorEntityDescription(key="ac1_bi", name="Port 1 power station connected",
+                                  device_class=BinarySensorDeviceClass.PLUG),
+    BinarySensorEntityDescription(key="ac2_bi", name="Port 2 power station connected",
+                                  device_class=BinarySensorDeviceClass.PLUG),
+)
+
+# Fault flags: anything non-zero is a problem.
+PROBLEM_BINARIES: tuple[BinarySensorEntityDescription, ...] = tuple(
+    BinarySensorEntityDescription(key=k, name=n, device_class=BinarySensorDeviceClass.PROBLEM)
+    for k, n in (
+        ("fz_ol", "Overload"), ("fz_ta1", "Temperature alarm 1"), ("fz_ta2", "Temperature alarm 2"),
+        ("fz_ntc", "Temperature sensor fault"), ("fz_rtc", "Clock fault"),
+    )
 )
 BINARY_PROP_KEYS = {d.key for d in PROP_BINARIES}
+
+
+BINARY_PROP_KEYS |= {d.key for d in PROBLEM_BINARIES}
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -98,6 +115,7 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities: AddE
         for dev in coordinator.devices.values():
             props = (data.get(dev.dev_id) or {}).get("props") or {}
             found += [PropBinary(coordinator, dev, d) for d in PROP_BINARIES if d.key in props]
+            found += [ProblemBinary(coordinator, dev, d) for d in PROBLEM_BINARIES if d.key in props]
         add(found)
 
     discover()
@@ -116,6 +134,13 @@ class PropBinary(JackeryDeviceEntity, BinarySensorEntity):
     def is_on(self) -> bool | None:
         v = num(self.dev_data.get("props", {}).get(self._key))
         return None if v is None else v == 1
+
+
+class ProblemBinary(PropBinary):
+    @property
+    def is_on(self) -> bool | None:
+        v = num(self.dev_data.get("props", {}).get(self._key))
+        return None if v is None else v != 0
 
 
 class DerivedBinary(JackeryDeviceEntity, BinarySensorEntity):
@@ -138,6 +163,8 @@ class OnlineBinary(JackeryDeviceEntity, BinarySensorEntity):
 
     def __init__(self, coordinator, dev) -> None:
         super().__init__(coordinator, dev, "online", "binary_sensor")
+        # Product picture, so tile cards can show the device instead of an icon.
+        self._attr_entity_picture = dev.raw.get("iconPath")
 
     @property
     def available(self) -> bool:

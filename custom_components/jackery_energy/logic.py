@@ -37,7 +37,21 @@ FRIENDLY_KEYS: dict[str, str] = {
     "oac": "ac_output", "odc": "dc_output", "odcu": "usb_output", "odcc": "car_output",
     "iac": "ac_input_enabled", "idc": "dc_input_enabled", "ups": "ups_mode",
     "sfc": "super_charge", "wss": "wireless_charging",
+    # Smart Transfer Switch
+    "ac1_bi": "port1_connected", "ac2_bi": "port2_connected",
+    "ac1_rb": "port1_battery", "ac1_ip": "port1_input_power", "ac1_op": "port1_output_power",
+    "ac1_ot": "port1_time_remaining", "ac1_bs": "port1_battery_state",
+    "ac2_rb": "port2_battery", "ac2_ip": "port2_input_power", "ac2_op": "port2_output_power",
+    "dg": "grid_energy_counter", "dh": "home_energy_counter", "ds": "solar_energy_counter",
+    "de": "battery_energy_counter",
+    "fz_ol": "overload", "fz_ta1": "temperature_alarm_1", "fz_ta2": "temperature_alarm_2",
+    "fz_ec1": "error_code_1", "fz_ec2": "error_code_2", "fz_gs": "grid_status_code",
+    "fz_es": "error_status", "fz_bs1": "battery_status_1", "fz_bs2": "battery_status_2",
+    "fz_ntc": "ntc_fault", "fz_rtc": "clock_fault",
 }
+
+# Never expose these as entities (serial numbers, timezone offset).
+HIDDEN_KEYS = {"ac1_sn", "ac2_sn", "sn", "uo", "mac", "wip", "wname", "ac1_bp", "ac2_bp"}
 
 POWER_SOURCES = ["solar", "grid", "grid_and_solar", "battery", "idle", "offline"]
 BATTERY_STATES = ["idle", "charging", "discharging"]
@@ -85,14 +99,16 @@ def classify(device: dict[str, Any]) -> DeviceProfile:
         for k in ("devNickname", "devName", "devModel", "productType", "modelName")
     ).lower()
 
+    code = _to_int(device.get("modelCode"))
     if (
-        "transfer" in haystack
+        code == 2001
+        or "hto785" in haystack
+        or "transfer" in haystack
         or re.search(r"\bsts\b", haystack)
         or "ts02" in haystack
     ):
         return DeviceProfile("sts", "Smart Transfer Switch", None, KIND_TRANSFER_SWITCH)
 
-    code = _to_int(device.get("modelCode"))
     if code in MODEL_CODES:
         slug, model, cap = MODEL_CODES[code]
         return DeviceProfile(slug, model, cap, KIND_POWER_STATION)
@@ -175,7 +191,14 @@ def derive_device(props: dict[str, Any], capacity_wh: int | None,
         capacity = (capacity or 0) + PACK_CAPACITY_WH
         stored = (stored or 0) + prb / 100 * PACK_CAPACITY_WH
 
+    drain = max(-net, 0) if net is not None else None
+    runtime = (
+        round(stored / drain, 2)
+        if stored is not None and drain is not None and drain > ACTIVE_W else None
+    )
+
     return {
+        "runtime": runtime,
         "solar_power": solar,
         "grid_input_power": grid,
         "output_power": op,
@@ -244,6 +267,18 @@ def derive_system(devices: list[dict[str, Any]]) -> dict[str, Any]:
         rbs = [r for r in rbs if r is not None]
         level = round(sum(rbs) / len(rbs), 1) if rbs else None
 
+    # Home backup group (5000 Plus + transfer switch + its solar): if the grid failed now,
+    # how long would the 5000 Plus carry the circuits? load - solar, from stored energy.
+    feeders_all = [d for d in online if str(d.get("slug", "")).startswith(STS_FEEDERS)]
+    home_stored = total("stored_energy", feeders_all)
+    home_solar = total("solar_power", feeders_all) or 0
+    home_load = max(circuits or 0, total("output_power", feeders_all) or 0) if feeders_all else None
+    home_drain = (home_load - home_solar) if home_load is not None else None
+    home_runtime = (
+        round(home_stored / home_drain, 2)
+        if home_stored is not None and home_drain is not None and home_drain > ACTIVE_W else None
+    )
+
     # Backed-up house circuits: grid if the switch is passing grid power through.
     if passthrough is not None and passthrough > ACTIVE_W:
         source = "grid_and_solar" if (solar or 0) > ACTIVE_W else "grid"
@@ -256,6 +291,10 @@ def derive_system(devices: list[dict[str, Any]]) -> dict[str, Any]:
         "grid_charge_power": grid_charge,
         "grid_to_circuits_power": passthrough,
         "circuits_power": circuits,
+        "home_backup_load": home_load,
+        "home_backup_drain": max(home_drain, 0) if home_drain is not None else None,
+        "home_backup_stored": home_stored,
+        "home_backup_runtime": home_runtime,
         "load_power": load,
         "battery_net_power": net,
         "battery_charge_power": max(net, 0) if net is not None else None,

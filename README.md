@@ -35,6 +35,11 @@ Push this folder to your own GitHub repo, then HACS → ⋮ → Custom repositor
 
 ## Dashboard
 
+v0.3 dashboard highlights: device pictures (tap to open each device's page), a live **Estimated runtime**
+card (home backup = 5000 Plus stored energy ÷ (circuits load − solar); 300 Plus = stored ÷ its own drain),
+a solar section with 3-day graph and daily bars, and a 30-day energy history. It needs `mini-graph-card`
+and `apexcharts-card` from Marketplace.
+
 1. Settings → Dashboards → **Add dashboard** → *New dashboard from scratch* → name it "Jackery".
 2. Open it → ✏️ Edit → ⋮ → **Raw configuration editor** → paste `dashboards/jackery_dashboard.yaml` → Save.
 

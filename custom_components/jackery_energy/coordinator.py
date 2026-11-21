@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -32,6 +33,26 @@ class JackeryDevice:
     @property
     def is_power_station(self) -> bool:
         return self.profile.kind != KIND_TRANSFER_SWITCH
+
+
+def _expand_nested(props: dict[str, Any]) -> dict[str, Any]:
+    """Some devices (Smart Transfer Switch) send JSON strings, e.g. ac1='{"rb": 79, ...}'.
+
+    Decode them and add flattened scalar keys (ac1_rb, fz_ol, ...) next to the original.
+    """
+    out = dict(props)
+    for key, value in props.items():
+        if isinstance(value, str) and value.startswith("{"):
+            try:
+                value = json.loads(value)
+            except ValueError:
+                continue
+        if isinstance(value, dict):
+            out[key] = value
+            for sub, sv in value.items():
+                if not isinstance(sv, (dict, list)):
+                    out[f"{key}_{sub}"] = sv
+    return out
 
 
 def _flatten_pack(pack: dict[str, Any]) -> dict[str, Any]:
@@ -66,7 +87,7 @@ class JackeryCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             entry: dict[str, Any] = {"props": {}, "meta": {}, "online": None, "error": None}
             try:
                 data = self.api.get_property(dev.dev_id)
-                entry["props"] = data.get("properties") or {}
+                entry["props"] = _expand_nested(data.get("properties") or {})
                 entry["meta"] = data.get("device") or {}
                 status = entry["meta"].get("onlineStatus")
                 entry["online"] = None if status is None else status == 1
