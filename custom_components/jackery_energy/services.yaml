@@ -1,0 +1,15 @@
+rename_circuit:
+  fields:
+    circuit:
+      required: true
+      example: 3
+      selector:
+        number:
+          min: 1
+          max: 12
+          mode: box
+    name:
+      required: true
+      example: Kitchen fridge
+      selector:
+        text:

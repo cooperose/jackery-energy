@@ -32,7 +32,8 @@
       "init": {
         "title": "Jackery Energy options",
         "data": {
-          "scan_interval": "Polling interval (seconds)"
+          "scan_interval": "Polling interval (seconds)",
+          "circuit_interval": "Read circuits every N minutes (0 = only on Refresh). Each read briefly disconnects the Jackery phone app."
         }
       }
     }
@@ -56,6 +57,40 @@
           "idle": "Idle",
           "charging": "Charging",
           "discharging": "Discharging"
+        }
+      }
+    },
+    "select": {
+      "work_mode": {
+        "name": "Working mode",
+        "state": {
+          "automatic_charging": "Automatic charging",
+          "charging_plan": "Charging-discharging plan",
+          "self_powered": "Self-powered"
+        }
+      },
+      "circuit_priority": {
+        "name": "Circuit priority",
+        "state": {
+          "must_have": "Must have",
+          "nice_to_have": "Nice to have",
+          "non_priority": "Non-priority"
+        }
+      }
+    }
+  },
+  "services": {
+    "rename_circuit": {
+      "name": "Rename circuit",
+      "description": "Rename a home circuit on the Smart Transfer Switch (same as renaming it in the Jackery app).",
+      "fields": {
+        "circuit": {
+          "name": "Circuit number",
+          "description": "1\u201312"
+        },
+        "name": {
+          "name": "New name",
+          "description": "Up to 24 characters"
         }
       }
     }

@@ -103,8 +103,31 @@ Replace `{d}` with `e5000`, `e300` (or `system` where noted).
 | `binary_sensor.jackery_system_on_battery` | handy for "power outage" automations |
 | `sensor.jackery_sts_raw_*` | transfer-switch fields (see above) |
 
+## Smart Transfer Switch control (v0.4)
+
+Reverse-engineered from the Jackery Android app (2.4.7) command table for the transfer switch
+(`BoxControlFormat`). Commands go over Jackery's cloud MQTT broker, the same path the app uses.
+
+| Entity | What it does | Wire command |
+|---|---|---|
+| `button.jackery_sts_charge_from_grid` | Turns on **Backup-only mode** for 24 h. The switch fully charges the 5000 Plus from the grid | actionId 6 `{"cmd":8,"ps":1,"pst":1440}` |
+| `button.jackery_sts_stop_grid_charge` / `switch.jackery_sts_backup_only` | Stop / toggle backup-only | actionId 6 |
+| `switch.jackery_sts_circuit_N` | Turn home circuit N on/off | actionId 9 `{"cmd":12,"idx":N,"sw":0/1}` |
+| `sensor.jackery_sts_circuit_N_power` | Live power per circuit | from `QueryCircuitProperty` |
+| `select.jackery_sts_circuit_N_priority` | Must have / Nice to have / Non-priority | actionId 10 `{"cmd":13,"cir":[{idx,pr}…]}` |
+| `select.jackery_sts_work_mode` | Automatic charging / Charging-discharging plan / Self-powered | actionId 17 `{"cmd":20,"en":0/1/2}` |
+| `number.jackery_sts_backup_reserve` | Backup reserve % | actionId 5 `{"cmd":7,"dt":%}` |
+| `number.jackery_sts_nice_to_have_level` | Battery % below which nice-to-have circuits are cut | actionId 16 `{"cmd":19,"ddt":%}` |
+| `switch.jackery_sts_ups_mode` | UPS (≤20 ms switch-over) | actionId 4 `{"cmd":6,"ups":0/1}` |
+| `switch.jackery_sts_supply_from_station` | Manually run the house from the 5000 Plus | actionId 2 `{"cmd":4,"pss":0/1}` |
+| service `jackery_energy.rename_circuit` | Rename a circuit (shows in the app too) | actionId 11 `{"cmd":14,"idx":N,"nm":base64}` |
+
+**Phone app note:** Jackery's broker only allows one connection per account (`<userId>@APP`), so each
+read or command briefly bumps the phone app (a few seconds; it reconnects by itself). Circuits are read
+every 10 minutes by default. Change it, or set 0 for manual-only, in the integration's options.
+
 ## Notes and limits
-- Read-only for now. Toggling AC/USB outputs needs Jackery's MQTT command channel. That could be a follow-up.
+- Charging plans (time-of-use schedules) aren't exposed yet. Portable-station output toggles (AC/USB on the 5000 Plus itself) aren't either.
 - Accounts registered in the EU region may not work, same as the original.
 - The cloud updates roughly every 30–60 s. History graphs show that resolution.
 - Credits: login/encryption from theak/jackery-homeassistant; property map from jlopez/socketry and

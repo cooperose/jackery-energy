@@ -7,7 +7,10 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
+from datetime import timedelta
+
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers.event import async_call_later, async_track_time_interval
 
 from .api import JackeryAPI, JackeryAuthenticationError, JackeryError
 from .coordinator import JackeryCoordinator, JackeryDevice
@@ -15,7 +18,13 @@ from .logic import classify, unique_slugs
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.IMAGE]
+from .const import CONF_CIRCUIT_INTERVAL, DEFAULT_CIRCUIT_INTERVAL
+from .services import async_setup_services
+
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR, Platform.BINARY_SENSOR, Platform.IMAGE,
+    Platform.SWITCH, Platform.SELECT, Platform.NUMBER, Platform.BUTTON,
+]
 
 type JackeryConfigEntry = ConfigEntry[JackeryCoordinator]
 
@@ -54,6 +63,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: JackeryConfigEntry) -> b
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload))
+    async_setup_services(hass)
+
+    if any(not d.is_power_station for d in devices):
+        minutes = entry.options.get(CONF_CIRCUIT_INTERVAL, DEFAULT_CIRCUIT_INTERVAL)
+        # First circuit read shortly after start-up, then on the chosen interval.
+        entry.async_on_unload(async_call_later(hass, 20, coordinator.async_refresh_box))
+        if minutes:
+            entry.async_on_unload(async_track_time_interval(
+                hass, coordinator.async_refresh_box, timedelta(minutes=minutes)))
     return True
 
 

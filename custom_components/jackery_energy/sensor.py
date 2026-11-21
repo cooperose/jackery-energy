@@ -120,6 +120,9 @@ PROP_SENSORS: tuple[JackerySensorDescription, ...] = (
     JackerySensorDescription(key="de", name="Battery energy counter", icon="mdi:home-battery",
                              state_class=SensorStateClass.TOTAL_INCREASING),
     # --- Smart Transfer Switch fault block (fz)
+    JackerySensorDescription(key="pst", name="Backup-only time setting", icon="mdi:timer-outline",
+                             native_unit_of_measurement=UnitOfTime.MINUTES,
+                             device_class=SensorDeviceClass.DURATION),
     JackerySensorDescription(key="fz_ec1", name="Error code 1", entity_category=_DIAG),
     JackerySensorDescription(key="fz_ec2", name="Error code 2", entity_category=_DIAG),
     JackerySensorDescription(key="fz_gs", name="Grid status code", entity_category=_DIAG),
@@ -206,7 +209,9 @@ PACK_SENSORS: tuple[JackerySensorDescription, ...] = (
     PROP_SENSORS[8], PROP_SENSORS[9],
 )
 
-KNOWN_KEYS = {d.key for d in PROP_SENSORS} | BINARY_PROP_KEYS | {"bs"} | HIDDEN_KEYS
+# Settings that now have proper controls (switch/select/number) don't need Raw sensors.
+CONTROL_KEYS = {"en", "dt", "ddt", "ps", "pss", "cmd"}
+KNOWN_KEYS = {d.key for d in PROP_SENSORS} | BINARY_PROP_KEYS | {"bs"} | HIDDEN_KEYS | CONTROL_KEYS
 
 
 def _scaled(value: Any, d: JackerySensorDescription) -> Any:
@@ -261,7 +266,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: JackeryConfigEntry,
                 for d in PACK_SENSORS:
                     if d.key in pack:
                         found.append(PackSensor(coordinator, dev, idx, pack, d))
+
+        for dev in coordinator.devices.values():
+            if dev.profile.kind != "transfer_switch":
+                continue
+            for c in (data.get(dev.dev_id) or {}).get("circuits") or []:
+                found.append(CircuitPowerSensor(coordinator, dev, int(c["idx"])))
         add(found)
+
+    for dev in coordinator.devices.values():
+        if dev.profile.kind == "transfer_switch":
+            add([BoxLinkSensor(coordinator, dev)])
 
     discover()
     entry.async_on_unload(coordinator.async_add_listener(discover))
@@ -478,3 +493,73 @@ class SystemEnergySensor(_EnergyMixin, JackerySystemEntity):
 
     def _power_now(self) -> float | None:
         return self.system.get(self._source)
+
+
+class CircuitPowerSensor(JackeryDeviceEntity, SensorEntity):
+    """Live power of one home circuit on the Smart Transfer Switch."""
+
+    _attr_native_unit_of_measurement = W
+    _attr_device_class = SensorDeviceClass.POWER
+    _attr_state_class = M
+    _attr_icon = "mdi:flash"
+
+    def __init__(self, coordinator: JackeryCoordinator, dev: JackeryDevice, idx: int) -> None:
+        super().__init__(coordinator, dev, f"circuit_{idx}_power", "sensor")
+        self._idx = idx
+
+    def _c(self) -> dict[str, Any] | None:
+        return next((c for c in self.dev_data.get("circuits") or [] if int(c.get("idx", -1)) == self._idx), None)
+
+    @property
+    def name(self) -> str:
+        c = self._c()
+        nm = c.get("name") if c else None
+        return f"Circuit {self._idx}" + (f" · {nm}" if nm else "") + " power"
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._c() is not None
+
+    @property
+    def native_value(self) -> float | None:
+        c = self._c()
+        if not c:
+            return None
+        total = num(c.get("pc"))
+        return total
+
+
+class BoxLinkSensor(JackeryDeviceEntity, SensorEntity):
+    """Diagnostic: when circuits/settings were last read over MQTT, plus recent traffic."""
+
+    _attr_name = "Control link"
+    _attr_icon = "mdi:access-point-network"
+    _attr_entity_category = _DIAG
+    _unrecorded_attributes = frozenset({MATCH_ALL})
+
+    def __init__(self, coordinator: JackeryCoordinator, dev: JackeryDevice) -> None:
+        super().__init__(coordinator, dev, "control_link", "sensor")
+
+    @property
+    def available(self) -> bool:
+        return self.coordinator.last_update_success
+
+    @property
+    def native_value(self) -> str:
+        if self.dev_data.get("box_error"):
+            return "error"
+        if self.dev_data.get("box_updated"):
+            return "ok"
+        if self.coordinator.mqtt is None:
+            return "no_credentials"
+        return "waiting"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        mqtt = self.coordinator.mqtt
+        return {
+            "last_read": self.dev_data.get("box_updated"),
+            "last_error": self.dev_data.get("box_error"),
+            "circuits": len(self.dev_data.get("circuits") or []),
+            "recent_traffic": json.dumps((mqtt.log if mqtt else [])[-12:], default=str)[:15000],
+        }

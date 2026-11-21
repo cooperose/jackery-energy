@@ -14,6 +14,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .api import JackeryAPI, JackeryAuthenticationError, JackeryError
+from .mqtt import BoxCommand, JackeryMqtt, decode_name, q_circuits, q_device
 from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN, PACK_POLL_EVERY
 from .logic import KIND_TRANSFER_SWITCH, DeviceProfile, derive_device, derive_system
 
@@ -76,6 +77,97 @@ class JackeryCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.devices = {d.dev_id: d for d in devices}
         self._cycle = 0
         self._packs: dict[str, list[dict[str, Any]]] = {}
+        # Smart Transfer Switch data that only arrives over MQTT (circuits, ...)
+        self.box_state: dict[str, dict[str, Any]] = {}
+        self._mqtt: JackeryMqtt | None = None
+
+    # ------------------------------------------------------------------ MQTT
+    @property
+    def mqtt(self) -> JackeryMqtt | None:
+        if self._mqtt is None and self.api.user_id and self.api.mqtt_password:
+            self._mqtt = JackeryMqtt(self.api.user_id, self.api.mac_id, self.api.mqtt_password)
+        return self._mqtt
+
+    def _ingest(self, messages: list[dict[str, Any]]) -> None:
+        by_sn = {d.sn: d for d in self.devices.values() if d.sn}
+        for msg in messages:
+            dev = by_sn.get(str(msg.get("deviceSn")))
+            if dev is None:
+                continue
+            body = msg.get("body")
+            if isinstance(body, str):
+                try:
+                    body = json.loads(body)
+                except ValueError:
+                    continue
+            if not isinstance(body, dict):
+                continue
+            if isinstance(body.get("properties"), dict):
+                body = body["properties"]
+            state = self.box_state.setdefault(dev.dev_id, {"props": {}, "circuits": []})
+            cir = body.get("cir")
+            if isinstance(cir, str):
+                try:
+                    cir = json.loads(cir)
+                except ValueError:
+                    cir = None
+            if isinstance(cir, list):
+                circuits = []
+                for c in cir:
+                    if isinstance(c, dict) and c.get("idx") is not None:
+                        circuits.append({**c, "name": decode_name(c.get("nm"))})
+                if circuits:
+                    state["circuits"] = sorted(circuits, key=lambda c: int(c["idx"]))
+            for k, v in body.items():
+                if k not in ("cir", "cmd") and not isinstance(v, (dict, list)):
+                    state["props"][k] = v
+            state["updated"] = dt_util.utcnow()
+
+    async def async_box_command(self, dev: JackeryDevice, commands: list[BoxCommand],
+                                listen_s: float = 6.0) -> None:
+        """Send commands to a transfer switch, then re-read its state and circuits."""
+        client = self.mqtt
+        if client is None or not dev.sn:
+            raise JackeryError("Control unavailable: login did not return MQTT credentials")
+        try:
+            msgs = await self.hass.async_add_executor_job(
+                client.exchange, dev.sn, [*commands, q_device(), q_circuits()], listen_s
+            )
+        except Exception as err:  # noqa: BLE001
+            self.box_state.setdefault(dev.dev_id, {"props": {}, "circuits": []})["error"] = str(err)
+            raise JackeryError(f"Transfer switch command failed: {err}") from err
+        self._ingest(msgs)
+        self.box_state.setdefault(dev.dev_id, {"props": {}, "circuits": []})["error"] = None
+        await self.async_request_refresh()
+
+    async def async_refresh_box(self, *_: Any) -> None:
+        """Poll circuits + settings from every transfer switch (briefly bumps the phone app)."""
+        for dev in self.devices.values():
+            if dev.is_power_station or not dev.sn or self.mqtt is None:
+                continue
+            try:
+                msgs = await self.hass.async_add_executor_job(
+                    self.mqtt.exchange, dev.sn, [q_device(), q_circuits()], 6.0
+                )
+                self._ingest(msgs)
+                self.box_state.setdefault(dev.dev_id, {"props": {}, "circuits": []})["error"] = None
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.debug("Transfer switch MQTT refresh failed: %s", err)
+                self.box_state.setdefault(dev.dev_id, {"props": {}, "circuits": []})["error"] = str(err)
+        if self.data:
+            self._merge_box(self.data)
+            self.async_set_updated_data(self.data)
+
+    def _merge_box(self, data: dict[str, Any]) -> None:
+        for dev_id, state in self.box_state.items():
+            entry = data.get(dev_id)
+            if entry is None:
+                continue
+            # HTTP values win; MQTT fills in what HTTP doesn't report.
+            entry["props"] = {**state.get("props", {}), **entry.get("props", {})}
+            entry["circuits"] = state.get("circuits", [])
+            entry["box_updated"] = state.get("updated")
+            entry["box_error"] = state.get("error")
 
     def _fetch(self) -> dict[str, Any]:
         poll_packs = self._cycle % PACK_POLL_EVERY == 0
@@ -135,4 +227,5 @@ class JackeryCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "props": entry["props"], "derived": entry["derived"],
             })
         data["_system"] = derive_system(summary)
+        self._merge_box(data)
         return data

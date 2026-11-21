@@ -59,8 +59,15 @@ class JackeryAPI:
         self.android_id = android_id
         self._token: str | None = None
         self._session = requests.Session()
+        # Needed for the MQTT broker (Smart Transfer Switch control / circuits)
+        self.user_id: str | None = None
+        self.mqtt_password: str | None = None
 
     # ---------------------------------------------------------------- auth
+    @property
+    def mac_id(self) -> str:
+        return self._mac_id()
+
     def _mac_id(self) -> str:
         digest = hashlib.md5(self.android_id.encode("utf-8")).digest()
         return "2" + str(uuid.UUID(bytes=digest, version=3)).replace("-", "")
@@ -106,6 +113,11 @@ class JackeryAPI:
 
         if data.get("code") == 0 and data.get("token"):
             self._token = data["token"]
+            info = data.get("data") or {}
+            if info.get("userId") is not None:
+                self.user_id = str(info["userId"])
+            if info.get("mqttPassWord"):
+                self.mqtt_password = info["mqttPassWord"]
             return True
         raise JackeryAuthenticationError(f"{data.get('msg', 'Login failed')} (code {data.get('code')})")
 
