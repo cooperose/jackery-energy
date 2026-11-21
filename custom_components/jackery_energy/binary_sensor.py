@@ -66,6 +66,8 @@ SYSTEM_BINARIES: tuple[DerivedBinaryDescription, ...] = (
                              device_class=PWR, fn=_active("solar_power")),
     DerivedBinaryDescription(key="grid_input_active", name="Grid charging",
                              icon="mdi:transmission-tower", device_class=PWR, fn=_active("grid_input_power")),
+    DerivedBinaryDescription(key="grid_to_circuits", name="Circuits on grid",
+                             icon="mdi:transmission-tower", device_class=PWR, fn=_active("grid_to_circuits_power")),
     DerivedBinaryDescription(key="on_battery", name="Running on battery", icon="mdi:home-battery",
                              fn=lambda d: None if d.get("power_source") is None
                              else d["power_source"] == "battery"),
@@ -106,6 +108,9 @@ class PropBinary(JackeryDeviceEntity, BinarySensorEntity):
     def __init__(self, coordinator, dev, description: BinarySensorEntityDescription) -> None:
         super().__init__(coordinator, dev, description.key, "binary_sensor")
         self.entity_description = description
+        if dev.profile.kind == "transfer_switch" and description.key == "ups":
+            self._attr_name = "Backup ready"
+            self._attr_entity_category = None
 
     @property
     def is_on(self) -> bool | None:

@@ -190,24 +190,52 @@ def derive_device(props: dict[str, Any], capacity_wh: int | None,
     }
 
 
-def derive_system(devices: list[dict[str, Any]]) -> dict[str, Any]:
-    """Aggregate derived values across all power stations.
+# Power stations that can feed the Smart Transfer Switch.
+STS_FEEDERS = ("e5000", "hp5000")
 
-    Each item: {"derived": {...}, "props": {...}, "online": bool, "kind": str}
+
+def derive_system(devices: list[dict[str, Any]]) -> dict[str, Any]:
+    """Aggregate derived values across all devices.
+
+    Each item: {"derived": {...}, "props": {...}, "online": bool, "kind": str, "slug": str}
+
+    The Smart Transfer Switch reports power flowing to the backed-up house circuits
+    (``op``). Whatever the 5000 Plus isn't supplying to it must be coming from the grid
+    (pass-through), so that is counted as grid power and house load.
     """
     stations = [d for d in devices if d.get("kind") != KIND_TRANSFER_SWITCH]
     online = [d for d in stations if d.get("online") is not False and d.get("derived")]
+    switches = [d for d in devices if d.get("kind") == KIND_TRANSFER_SWITCH
+                and d.get("online") is not False and d.get("props")]
 
-    def total(key: str) -> float | None:
-        vals = [d["derived"].get(key) for d in online if d["derived"].get(key) is not None]
+    def total(key: str, items: list[dict[str, Any]] = online) -> float | None:
+        vals = [d["derived"].get(key) for d in items if d["derived"].get(key) is not None]
         return sum(vals) if vals else None
 
+    circuits = None
+    if switches:
+        vals = [num(d["props"].get("op")) for d in switches]
+        vals = [v for v in vals if v is not None]
+        circuits = sum(vals) if vals else None
+
+    passthrough = None
+    if circuits is not None:
+        feeders = [d for d in online if str(d.get("slug", "")).startswith(STS_FEEDERS)]
+        fed = total("output_power", feeders) or 0
+        passthrough = max(circuits - fed, 0)
+
     solar = total("solar_power")
-    grid = total("grid_input_power")
-    load = total("output_power")
+    grid_charge = total("grid_input_power")
+    station_out = total("output_power")
     net = total("battery_net_power")
     stored = total("stored_energy")
     capacity = total("total_capacity")
+
+    grid = grid_charge
+    load = station_out
+    if passthrough is not None:
+        grid = (grid or 0) + passthrough
+        load = (load or 0) + passthrough
 
     if stored is not None and capacity:
         level = round(stored / capacity * 100, 1)
@@ -216,9 +244,18 @@ def derive_system(devices: list[dict[str, Any]]) -> dict[str, Any]:
         rbs = [r for r in rbs if r is not None]
         level = round(sum(rbs) / len(rbs), 1) if rbs else None
 
+    # Backed-up house circuits: grid if the switch is passing grid power through.
+    if passthrough is not None and passthrough > ACTIVE_W:
+        source = "grid_and_solar" if (solar or 0) > ACTIVE_W else "grid"
+    else:
+        source = power_source(solar, grid_charge, station_out, True if online else False)
+
     return {
         "solar_power": solar,
         "grid_input_power": grid,
+        "grid_charge_power": grid_charge,
+        "grid_to_circuits_power": passthrough,
+        "circuits_power": circuits,
         "load_power": load,
         "battery_net_power": net,
         "battery_charge_power": max(net, 0) if net is not None else None,
@@ -228,7 +265,7 @@ def derive_system(devices: list[dict[str, Any]]) -> dict[str, Any]:
         "total_capacity": capacity,
         "devices_online": sum(1 for d in devices if d.get("online") is True),
         "devices_total": len(devices),
-        "power_source": power_source(solar, grid, load, True if online else False),
+        "power_source": source,
     }
 
 

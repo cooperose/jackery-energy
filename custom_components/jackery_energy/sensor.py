@@ -134,6 +134,9 @@ SYSTEM_SENSORS: tuple[JackerySensorDescription, ...] = (
     _power("solar_power", "Solar power", icon="mdi:solar-power"),
     _power("grid_input_power", "Grid input power", icon="mdi:transmission-tower-import"),
     _power("load_power", "Load power", icon="mdi:home-lightning-bolt"),
+    _power("circuits_power", "Backed-up circuits load", icon="mdi:electric-switch"),
+    _power("grid_to_circuits_power", "Grid to circuits", icon="mdi:transmission-tower-export"),
+    _power("grid_charge_power", "Grid charging", icon="mdi:battery-charging"),
     _power("battery_net_power", "Battery net power", icon="mdi:battery-sync"),
     _power("battery_charge_power", "Battery charge power", icon="mdi:battery-arrow-up"),
     _power("battery_discharge_power", "Battery discharge power", icon="mdi:battery-arrow-down"),
@@ -227,6 +230,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: JackeryConfigEntry,
 
 
 # ---------------------------------------------------------------- device sensors
+STS_NAMES = {
+    "ip": "Source power",
+    "op": "Circuits load",
+    "rb": "Backup battery",
+    "ot": "Backup time remaining",
+}
+
+
 class PropSensor(JackeryDeviceEntity, SensorEntity):
     entity_description: JackerySensorDescription
 
@@ -234,6 +245,8 @@ class PropSensor(JackeryDeviceEntity, SensorEntity):
                  description: JackerySensorDescription) -> None:
         super().__init__(coordinator, dev, description.key, "sensor")
         self.entity_description = description
+        if dev.profile.kind == "transfer_switch" and description.key in STS_NAMES:
+            self._attr_name = STS_NAMES[description.key]
 
     @property
     def native_value(self) -> Any:

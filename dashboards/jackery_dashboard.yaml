@@ -39,7 +39,7 @@ views:
             color: blue
           - type: tile
             entity: sensor.jackery_system_load_power
-            name: House load
+            name: Total load
             color: purple
           - type: tile
             entity: sensor.jackery_system_battery_net_power
@@ -189,8 +189,24 @@ views:
             icon: mdi:electric-switch
           - type: tile
             entity: binary_sensor.jackery_sts_online
-            name: Transfer switch online
-            grid_options: { columns: full }
+            name: Online
+          - type: tile
+            entity: binary_sensor.jackery_sts_ups_mode
+            name: Backup ready
+          - type: tile
+            entity: sensor.jackery_sts_output_power
+            name: Circuits load
+            color: purple
+          - type: tile
+            entity: sensor.jackery_system_grid_to_circuits_power
+            name: From grid
+            color: blue
+          - type: tile
+            entity: binary_sensor.jackery_system_grid_to_circuits
+            name: Circuits on grid
+          - type: tile
+            entity: sensor.jackery_sts_time_remaining
+            name: Backup runtime
           - type: markdown
             grid_options: { columns: full }
             content: |-
@@ -204,7 +220,7 @@ views:
               {% endfor %}
               {% endif %}
 
-              *Jackery hasn't documented these fields. Download diagnostics to get friendly names added.*
+              *Raw fields Jackery hasn't documented. dg / dh / ds look like lifetime energy counters.*
 
   # ------------------------------------------------------------------ HISTORY
   - title: History
@@ -227,6 +243,8 @@ views:
                 name: Grid in
               - entity: sensor.jackery_system_load_power
                 name: Load
+              - entity: sensor.jackery_sts_output_power
+                name: Backed-up circuits
               - entity: sensor.jackery_system_battery_net_power
                 name: Battery net
           - type: history-graph

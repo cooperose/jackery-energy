@@ -110,7 +110,7 @@ class JackeryCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if dev.is_power_station and entry["props"] else {}
             )
             summary.append({
-                "kind": dev.profile.kind, "online": entry["online"],
+                "kind": dev.profile.kind, "slug": dev.profile.slug, "online": entry["online"],
                 "props": entry["props"], "derived": entry["derived"],
             })
         data["_system"] = derive_system(summary)

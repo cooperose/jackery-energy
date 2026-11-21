@@ -56,9 +56,17 @@ Settings → Dashboards → Energy:
 - *Grid consumption:* `sensor.jackery_system_grid_input_energy`. This counts only grid power the Jackerys draw,
   not loads the transfer switch passes straight through from the grid.
 
-## Smart Transfer Switch – getting friendly names
+## Smart Transfer Switch
 
-Jackery doesn't publish the transfer switch's data fields, and no community project has mapped them yet.
+The switch reports its own `ip`/`op` (shown as **Source power** / **Circuits load**), a UPS flag
+(**Backup ready**), and the backup battery % and runtime mirrored from the 5000 Plus. The **Jackery System**
+device uses this. Whatever the circuits draw beyond what the 5000 Plus supplies is counted as **grid
+pass-through** (`sensor.jackery_system_grid_to_circuits_power`). It's added to system grid power and
+total load, so the power source reads *Grid* when your house circuits run on the grid.
+
+### Getting friendly names for the remaining fields
+
+The other fields (`dg`, `dh`, `ds`, `de`, `dt`, …) aren't documented. `dg`/`dh`/`ds` look like lifetime energy counters.
 This integration doesn't guess. It exposes every field as a sensor named `Raw <code>` on the transfer-switch device,
 and the dashboard lists them all live. To get proper names (for example grid voltage, per-circuit load, grid/backup mode):
 
