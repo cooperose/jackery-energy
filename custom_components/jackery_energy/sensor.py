@@ -506,6 +506,9 @@ class CircuitPowerSensor(JackeryDeviceEntity, SensorEntity):
     def __init__(self, coordinator: JackeryCoordinator, dev: JackeryDevice, idx: int) -> None:
         super().__init__(coordinator, dev, f"circuit_{idx}_power", "sensor")
         self._idx = idx
+        c = self._c()
+        if c is not None and not c.get("name"):
+            self._attr_entity_registry_enabled_default = False  # unused, unnamed circuit
 
     def _c(self) -> dict[str, Any] | None:
         return next((c for c in self.dev_data.get("circuits") or [] if int(c.get("idx", -1)) == self._idx), None)

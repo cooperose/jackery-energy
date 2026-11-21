@@ -64,6 +64,9 @@ class CircuitPrioritySelect(BoxEntity, SelectEntity):
     def __init__(self, coordinator, dev, idx: int) -> None:
         super().__init__(coordinator, dev, f"circuit_{idx}_priority", "select")
         self._idx = idx
+        c = self.circuit(idx)
+        if c is not None and not c.get("name"):
+            self._attr_entity_registry_enabled_default = False  # unused, unnamed circuit
 
     @property
     def name(self) -> str:

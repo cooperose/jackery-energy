@@ -112,12 +112,19 @@ class JackeryCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 except ValueError:
                     cir = None
             if isinstance(cir, list):
-                circuits = []
+                # Full lists come from QueryCircuitProperty; the switch also pushes partial
+                # updates (only changed circuits, often just "pc"). Merge by circuit index.
+                merged = {int(c["idx"]): c for c in state.get("circuits", [])}
                 for c in cir:
-                    if isinstance(c, dict) and c.get("idx") is not None:
-                        circuits.append({**c, "name": decode_name(c.get("nm"))})
-                if circuits:
-                    state["circuits"] = sorted(circuits, key=lambda c: int(c["idx"]))
+                    if not isinstance(c, dict) or c.get("idx") is None:
+                        continue
+                    idx = int(c["idx"])
+                    cur = dict(merged.get(idx, {}))
+                    cur.update(c)
+                    if "nm" in c:
+                        cur["name"] = decode_name(c.get("nm"))
+                    merged[idx] = cur
+                state["circuits"] = [merged[i] for i in sorted(merged)]
             for k, v in body.items():
                 if k not in ("cir", "cmd") and not isinstance(v, (dict, list)):
                     state["props"][k] = v
