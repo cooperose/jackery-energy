@@ -1,5 +1,5 @@
 # Jackery Energy dashboard (v0.3)
-# Uses these Marketplace/HACS cards: mini-graph-card, apexcharts-card.
+# Uses these Marketplace/HACS cards: mini-graph-card, apexcharts-card, card-mod.
 # Everything else is built-in. Paste in: Dashboard → ✏️ → ⋮ → Raw configuration editor.
 # Tap a device picture to open its page.
 
@@ -91,7 +91,7 @@ views:
       heading: Quick controls
       icon: mdi:gesture-tap-button
     - type: button
-      entity: button.jackery_sts_charge_from_grid
+      entity: switch.jackery_sts_backup_only
       name: Charge from grid
       icon: mdi:battery-charging-high
       show_state: false
@@ -103,6 +103,11 @@ views:
       grid_options:
         columns: 6
         rows: 2
+      card_mod:
+        style: "ha-card {\n  transition: background 0.4s, color 0.4s;\n  {% if is_state('switch.jackery_sts_backup_only','on')\
+          \ or is_state('binary_sensor.jackery_e5000_grid_input_active','on') %}\n  background: #facc15 !important;\n  color:\
+          \ #1f2937 !important;\n  --state-icon-color: #1f2937;\n  --card-mod-icon-color: #1f2937;\n  --paper-item-icon-color:\
+          \ #1f2937;\n  box-shadow: 0 0 12px rgba(250, 204, 21, 0.6);\n  {% endif %}\n}"
     - type: button
       entity: button.jackery_sts_stop_grid_charge
       name: Stop charging
@@ -637,7 +642,7 @@ views:
       heading: Controls & settings
       icon: mdi:tune
     - type: button
-      entity: button.jackery_sts_charge_from_grid
+      entity: switch.jackery_sts_backup_only
       name: Charge from grid
       icon: mdi:battery-charging-high
       show_state: false
@@ -649,6 +654,11 @@ views:
       grid_options:
         columns: 6
         rows: 2
+      card_mod:
+        style: "ha-card {\n  transition: background 0.4s, color 0.4s;\n  {% if is_state('switch.jackery_sts_backup_only','on')\
+          \ or is_state('binary_sensor.jackery_e5000_grid_input_active','on') %}\n  background: #facc15 !important;\n  color:\
+          \ #1f2937 !important;\n  --state-icon-color: #1f2937;\n  --card-mod-icon-color: #1f2937;\n  --paper-item-icon-color:\
+          \ #1f2937;\n  box-shadow: 0 0 12px rgba(250, 204, 21, 0.6);\n  {% endif %}\n}"
     - type: button
       entity: button.jackery_sts_stop_grid_charge
       name: Stop charging
