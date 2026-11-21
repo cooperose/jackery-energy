@@ -1,0 +1,63 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Jackery Energy",
+        "description": "Sign in with the same email and password you use in the Jackery app.",
+        "data": {
+          "username": "Email",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-enter Jackery password",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid email or password.",
+      "cannot_connect": "Could not reach the Jackery cloud.",
+      "no_devices": "Signed in, but no devices were found on this account.",
+      "unknown": "Unexpected error, check the logs."
+    },
+    "abort": {
+      "already_configured": "This Jackery account is already set up.",
+      "reauth_successful": "Password updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Jackery Energy options",
+        "data": {
+          "scan_interval": "Polling interval (seconds)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "power_source": {
+        "name": "Power source",
+        "state": {
+          "solar": "Solar",
+          "grid": "Grid",
+          "grid_and_solar": "Grid + solar",
+          "battery": "Battery",
+          "idle": "Idle",
+          "offline": "Offline"
+        }
+      },
+      "battery_state": {
+        "name": "Battery state",
+        "state": {
+          "idle": "Idle",
+          "charging": "Charging",
+          "discharging": "Discharging"
+        }
+      }
+    }
+  }
+}

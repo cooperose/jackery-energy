@@ -1,0 +1,295 @@
+# Jackery Energy dashboard — built-in cards only, no HACS cards needed.
+# Settings → Dashboards → Add dashboard → "New dashboard from scratch" → open it →
+# ⋮ → Edit dashboard → ⋮ → Raw configuration editor → paste this whole file → Save.
+#
+# Entity ids assume the integration named your devices e5000 / e300 / sts
+# (check Settings → Devices & services → Jackery Energy). If yours differ,
+# find-and-replace "jackery_e5000_", "jackery_e300_", "jackery_sts_".
+
+title: Jackery Power
+views:
+  # ------------------------------------------------------------------ OVERVIEW
+  - title: Overview
+    path: overview
+    icon: mdi:home-battery
+    type: sections
+    max_columns: 4
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Right now
+            icon: mdi:flash
+          - type: markdown
+            grid_options: { columns: full }
+            content: |-
+              {%- set src = states('sensor.jackery_system_power_source') %}
+              {%- set names = {'solar':'☀️ Solar','grid':'🔌 Grid','grid_and_solar':'🔌 Grid + ☀️ Solar',
+              'battery':'🔋 Battery','idle':'💤 Idle','offline':'⚠️ Offline'} %}
+              ### Power is coming from **{{ names.get(src, src) }}**
+
+              Solar **{{ states('sensor.jackery_system_solar_power') }} W** · Grid **{{ states('sensor.jackery_system_grid_input_power') }} W** · Load **{{ states('sensor.jackery_system_load_power') }} W** · Battery **{{ states('sensor.jackery_system_battery_level') }} %** ({{ (states('sensor.jackery_system_stored_energy') | float(0) / 1000) | round(2) }} of {{ (states('sensor.jackery_system_total_capacity') | float(0) / 1000) | round(2) }} kWh)
+          - type: tile
+            entity: sensor.jackery_system_solar_power
+            name: Solar (SolarSaga 500W)
+            color: amber
+          - type: tile
+            entity: sensor.jackery_system_grid_input_power
+            name: Grid in
+            color: blue
+          - type: tile
+            entity: sensor.jackery_system_load_power
+            name: House load
+            color: purple
+          - type: tile
+            entity: sensor.jackery_system_battery_net_power
+            name: Battery (+charge / −discharge)
+            color: green
+          - type: tile
+            entity: sensor.jackery_system_power_source
+            name: Source
+          - type: tile
+            entity: sensor.jackery_system_devices_online
+            name: Devices online
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Batteries
+            icon: mdi:battery-high
+          - type: gauge
+            entity: sensor.jackery_e5000_battery
+            name: Explorer 5000 Plus
+            needle: true
+            severity: { green: 50, yellow: 20, red: 0 }
+          - type: gauge
+            entity: sensor.jackery_e300_battery
+            name: Explorer 300 Plus
+            needle: true
+            severity: { green: 50, yellow: 20, red: 0 }
+          - type: gauge
+            entity: sensor.jackery_system_solar_power
+            name: Solar vs 500 W panel
+            min: 0
+            max: 500
+            severity: { green: 250, yellow: 50, red: 0 }
+          - type: gauge
+            entity: sensor.jackery_system_battery_level
+            name: Combined
+            needle: true
+            severity: { green: 50, yellow: 20, red: 0 }
+          - type: entities
+            title: Runtime
+            grid_options: { columns: full }
+            entities:
+              - entity: sensor.jackery_e5000_battery_state
+                name: 5000 Plus state
+              - entity: sensor.jackery_e5000_time_remaining
+                name: 5000 Plus time remaining
+              - entity: sensor.jackery_e5000_time_to_full
+                name: 5000 Plus time to full
+              - entity: sensor.jackery_e5000_stored_energy
+                name: 5000 Plus stored energy
+              - type: divider
+              - entity: sensor.jackery_e300_battery_state
+                name: 300 Plus state
+              - entity: sensor.jackery_e300_time_remaining
+                name: 300 Plus time remaining
+              - entity: sensor.jackery_e300_time_to_full
+                name: 300 Plus time to full
+              - entity: sensor.jackery_e300_stored_energy
+                name: 300 Plus stored energy
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Explorer 5000 Plus
+            icon: mdi:home-battery-outline
+          - type: glance
+            show_state: true
+            columns: 4
+            entities:
+              - entity: binary_sensor.jackery_e5000_online
+                name: Online
+              - entity: binary_sensor.jackery_e5000_charging
+                name: Charging
+              - entity: binary_sensor.jackery_e5000_solar_active
+                name: Solar
+              - entity: binary_sensor.jackery_e5000_grid_input_active
+                name: Grid
+              - entity: binary_sensor.jackery_e5000_ac_output
+                name: AC out
+              - entity: binary_sensor.jackery_e5000_usb_output
+                name: USB
+              - entity: binary_sensor.jackery_e5000_car_output
+                name: 12V car
+              - entity: binary_sensor.jackery_e5000_ups_mode
+                name: UPS
+          - type: entities
+            grid_options: { columns: full }
+            entities:
+              - entity: sensor.jackery_e5000_solar_power
+                name: Solar input
+              - entity: sensor.jackery_e5000_ac_input_power
+                name: AC / grid input
+              - entity: sensor.jackery_e5000_output_power
+                name: Total output
+              - entity: sensor.jackery_e5000_ac_output_power
+                name: AC output
+              - entity: sensor.jackery_e5000_ac_voltage
+                name: AC voltage L1
+              - entity: sensor.jackery_e5000_ac_voltage_l2
+                name: AC voltage L2
+              - entity: sensor.jackery_e5000_ac_frequency
+                name: Frequency
+              - entity: sensor.jackery_e5000_battery_temperature
+                name: Battery temp
+              - entity: sensor.jackery_e5000_error_code
+                name: Error code
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Explorer 300 Plus
+            icon: mdi:battery-outline
+          - type: glance
+            show_state: true
+            columns: 4
+            entities:
+              - entity: binary_sensor.jackery_e300_online
+                name: Online
+              - entity: binary_sensor.jackery_e300_charging
+                name: Charging
+              - entity: binary_sensor.jackery_e300_solar_active
+                name: Solar
+              - entity: binary_sensor.jackery_e300_ac_output
+                name: AC out
+              - entity: binary_sensor.jackery_e300_dc_output
+                name: DC out
+          - type: entities
+            grid_options: { columns: full }
+            entities:
+              - entity: sensor.jackery_e300_input_power
+                name: Total input
+              - entity: sensor.jackery_e300_solar_power
+                name: Solar / DC input
+              - entity: sensor.jackery_e300_ac_input_power
+                name: AC input
+              - entity: sensor.jackery_e300_output_power
+                name: Output
+              - entity: sensor.jackery_e300_battery_temperature
+                name: Battery temp
+              - entity: sensor.jackery_e300_error_code
+                name: Error code
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Smart Transfer Switch
+            icon: mdi:electric-switch
+          - type: tile
+            entity: binary_sensor.jackery_sts_online
+            name: Transfer switch online
+            grid_options: { columns: full }
+          - type: markdown
+            grid_options: { columns: full }
+            content: |-
+              {%- set raw = states.sensor | selectattr('entity_id', 'search', '^sensor\.jackery_sts_raw_(?!properties)') | list %}
+              {% if raw | count == 0 %}
+              No fields reported yet.
+              {% else %}
+              | Field | Value |
+              |---|---|
+              {% for s in raw %}| {{ s.attributes.friendly_name | replace('Smart Transfer Switch ', '') }} | {{ s.state }} |
+              {% endfor %}
+              {% endif %}
+
+              *Jackery hasn't documented these fields. Download diagnostics to get friendly names added.*
+
+  # ------------------------------------------------------------------ HISTORY
+  - title: History
+    path: history
+    icon: mdi:chart-line
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Power flow (last 24 h)
+          - type: history-graph
+            hours_to_show: 24
+            grid_options: { columns: full }
+            entities:
+              - entity: sensor.jackery_system_solar_power
+                name: Solar
+              - entity: sensor.jackery_system_grid_input_power
+                name: Grid in
+              - entity: sensor.jackery_system_load_power
+                name: Load
+              - entity: sensor.jackery_system_battery_net_power
+                name: Battery net
+          - type: history-graph
+            title: Where power came from
+            hours_to_show: 24
+            grid_options: { columns: full }
+            entities:
+              - entity: sensor.jackery_system_power_source
+                name: Source
+              - entity: binary_sensor.jackery_e5000_online
+                name: 5000 Plus online
+              - entity: binary_sensor.jackery_e300_online
+                name: 300 Plus online
+              - entity: binary_sensor.jackery_sts_online
+                name: Transfer switch online
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Battery level (last 48 h)
+          - type: history-graph
+            hours_to_show: 48
+            grid_options: { columns: full }
+            entities:
+              - entity: sensor.jackery_e5000_battery
+                name: 5000 Plus
+              - entity: sensor.jackery_e300_battery
+                name: 300 Plus
+              - entity: sensor.jackery_system_battery_level
+                name: Combined
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Daily energy (30 days)
+          - type: statistics-graph
+            grid_options: { columns: full }
+            chart_type: bar
+            period: day
+            days_to_show: 30
+            stat_types: [change]
+            entities:
+              - entity: sensor.jackery_system_solar_energy
+                name: Solar
+              - entity: sensor.jackery_system_grid_input_energy
+                name: Grid in
+              - entity: sensor.jackery_system_load_energy
+                name: Load
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Hourly power (7 days)
+          - type: statistics-graph
+            grid_options: { columns: full }
+            chart_type: line
+            period: hour
+            days_to_show: 7
+            stat_types: [mean, max]
+            entities:
+              - entity: sensor.jackery_system_solar_power
+                name: Solar
+              - entity: sensor.jackery_system_load_power
+                name: Load
+              - entity: sensor.jackery_system_grid_input_power
+                name: Grid

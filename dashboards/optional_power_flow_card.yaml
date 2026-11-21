@@ -1,0 +1,31 @@
+# OPTIONAL animated energy-flow card. Requires "Power Flow Card Plus" from HACS
+# (HACS → Frontend → search "Power Flow Card Plus" → Download).
+# Add it to any dashboard: Edit → Add card → Manual → paste this.
+
+type: custom:power-flow-card-plus
+title: Jackery energy flow
+watt_threshold: 1000
+entities:
+  solar:
+    entity: sensor.jackery_system_solar_power
+    name: SolarSaga 500W
+  grid:
+    entity:
+      consumption: sensor.jackery_system_grid_input_power
+    name: Grid
+  battery:
+    entity:
+      consumption: sensor.jackery_system_battery_discharge_power
+      production: sensor.jackery_system_battery_charge_power
+    state_of_charge: sensor.jackery_system_battery_level
+    name: Jackery
+  home:
+    entity: sensor.jackery_system_load_power
+    name: Loads
+  individual:
+    - entity: sensor.jackery_e5000_output_power
+      name: 5000 Plus
+      icon: mdi:home-battery
+    - entity: sensor.jackery_e300_output_power
+      name: 300 Plus
+      icon: mdi:battery

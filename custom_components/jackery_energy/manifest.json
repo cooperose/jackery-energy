@@ -1,0 +1,17 @@
+{
+  "domain": "jackery_energy",
+  "name": "Jackery Energy",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": [
+    "diagnostics"
+  ],
+  "documentation": "https://github.com/theak/jackery-homeassistant",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "requirements": [
+    "requests>=2.31.0",
+    "pycryptodomex>=3.19.0"
+  ],
+  "version": "0.1.0"
+}
