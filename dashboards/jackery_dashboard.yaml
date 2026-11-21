@@ -91,7 +91,7 @@ views:
       heading: Quick controls
       icon: mdi:gesture-tap-button
     - type: button
-      entity: switch.jackery_sts_backup_only
+      entity: binary_sensor.jackery_system_grid_input_active
       name: Charge from grid
       icon: mdi:battery-charging-high
       show_state: false
@@ -104,10 +104,10 @@ views:
         columns: 6
         rows: 2
       card_mod:
-        style: "ha-card {\n  transition: background 0.4s, color 0.4s;\n  {% if is_state('switch.jackery_sts_backup_only','on')\
-          \ or is_state('binary_sensor.jackery_e5000_grid_input_active','on') %}\n  background: #facc15 !important;\n  color:\
-          \ #1f2937 !important;\n  --state-icon-color: #1f2937;\n  --card-mod-icon-color: #1f2937;\n  --paper-item-icon-color:\
-          \ #1f2937;\n  box-shadow: 0 0 12px rgba(250, 204, 21, 0.6);\n  {% endif %}\n}"
+        style: "ha-card {\n  transition: background 0.4s, color 0.4s;\n  {% if is_state('binary_sensor.jackery_system_grid_input_active','on')\
+          \ %}\n  background: #facc15 !important;\n  color: #1f2937 !important;\n  --state-icon-color: #1f2937;\n  --card-mod-icon-color:\
+          \ #1f2937;\n  --paper-item-icon-color: #1f2937;\n  box-shadow: 0 0 12px rgba(250, 204, 21, 0.6);\n  {% endif %}\n\
+          }"
     - type: button
       entity: button.jackery_sts_stop_grid_charge
       name: Stop charging
@@ -123,10 +123,13 @@ views:
         rows: 2
     - type: tile
       entity: switch.jackery_sts_backup_only
-      name: Backup-only (charging)
+      name: Backup-only mode
       color: green
       grid_options:
         columns: full
+      state_content:
+      - state
+      - time_left
     - type: tile
       entity: select.jackery_sts_work_mode
       name: Working mode
@@ -642,7 +645,7 @@ views:
       heading: Controls & settings
       icon: mdi:tune
     - type: button
-      entity: switch.jackery_sts_backup_only
+      entity: binary_sensor.jackery_system_grid_input_active
       name: Charge from grid
       icon: mdi:battery-charging-high
       show_state: false
@@ -655,10 +658,10 @@ views:
         columns: 6
         rows: 2
       card_mod:
-        style: "ha-card {\n  transition: background 0.4s, color 0.4s;\n  {% if is_state('switch.jackery_sts_backup_only','on')\
-          \ or is_state('binary_sensor.jackery_e5000_grid_input_active','on') %}\n  background: #facc15 !important;\n  color:\
-          \ #1f2937 !important;\n  --state-icon-color: #1f2937;\n  --card-mod-icon-color: #1f2937;\n  --paper-item-icon-color:\
-          \ #1f2937;\n  box-shadow: 0 0 12px rgba(250, 204, 21, 0.6);\n  {% endif %}\n}"
+        style: "ha-card {\n  transition: background 0.4s, color 0.4s;\n  {% if is_state('binary_sensor.jackery_system_grid_input_active','on')\
+          \ %}\n  background: #facc15 !important;\n  color: #1f2937 !important;\n  --state-icon-color: #1f2937;\n  --card-mod-icon-color:\
+          \ #1f2937;\n  --paper-item-icon-color: #1f2937;\n  box-shadow: 0 0 12px rgba(250, 204, 21, 0.6);\n  {% endif %}\n\
+          }"
     - type: button
       entity: button.jackery_sts_stop_grid_charge
       name: Stop charging
@@ -683,9 +686,9 @@ views:
       - entity: number.jackery_sts_nice_to_have_level
         name: Nice-to-have cut-off
       - entity: switch.jackery_sts_backup_only
-        name: Backup-only (grid charging)
+        name: Backup-only mode
       - entity: sensor.jackery_sts_pst
-        name: Backup-only time setting
+        name: Backup-only time left
       - entity: switch.jackery_sts_ups_mode
         name: UPS mode
       - entity: switch.jackery_sts_supply_from_station

@@ -14,5 +14,5 @@
     "pycryptodomex>=3.19.0",
     "paho-mqtt>=1.6.1"
   ],
-  "version": "0.4.1"
+  "version": "0.4.2"
 }

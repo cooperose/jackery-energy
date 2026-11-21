@@ -15,7 +15,7 @@ from .mqtt import set_backup_only, set_circuit, set_supply_from_station, set_ups
 SETTINGS = (
     # key, prop, name, icon, builder
     ("ups_mode", "ups", "UPS mode", "mdi:shield-sync", set_ups),
-    ("backup_only", "ps", "Backup-only mode (charge from grid)", "mdi:battery-charging-high",
+    ("backup_only", "ps", "Backup-only mode", "mdi:shield-home",
      lambda on: set_backup_only(on, GRID_CHARGE_MINUTES)),
     ("supply_from_station", "pss", "Power home from 5000 Plus", "mdi:home-battery", set_supply_from_station),
 )
@@ -56,6 +56,13 @@ class SettingSwitch(BoxEntity, SwitchEntity):
     def is_on(self) -> bool | None:
         v = self.prop(self._prop)
         return None if v is None else v == 1
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        if self._prop != "ps":
+            return None
+        left = self.prop("pst")
+        return {"minutes_left": left, "time_left": f"{int(left // 60)} h {int(left % 60)} min" if left else None}
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         await self.send(self._builder(True))

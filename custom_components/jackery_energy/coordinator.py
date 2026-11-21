@@ -16,7 +16,9 @@ from homeassistant.util import dt as dt_util
 from .api import JackeryAPI, JackeryAuthenticationError, JackeryError
 from .mqtt import BoxCommand, JackeryMqtt, decode_name, q_circuits, q_device
 from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN, PACK_POLL_EVERY
-from .logic import KIND_TRANSFER_SWITCH, DeviceProfile, derive_device, derive_system
+from .logic import (
+    KIND_TRANSFER_SWITCH, STS_FEEDERS, DeviceProfile, derive_device, derive_system, sts_grid_to_station,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -221,12 +223,16 @@ class JackeryCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(str(err)) from err
 
         now = dt_util.utcnow()
+        sts_props = next((data[d]["props"] for d, dev in self.devices.items()
+                          if not dev.is_power_station and data.get(d, {}).get("props")), None)
+        grid_via_sts = sts_grid_to_station(sts_props)
         summary = []
         for dev_id, entry in data.items():
             dev = self.devices[dev_id]
             entry["updated"] = now
+            extra = grid_via_sts if dev.profile.slug.startswith(STS_FEEDERS) else 0
             entry["derived"] = (
-                derive_device(entry["props"], dev.profile.capacity_wh, entry["packs"], entry["online"])
+                derive_device(entry["props"], dev.profile.capacity_wh, entry["packs"], entry["online"], extra)
                 if dev.is_power_station and entry["props"] else {}
             )
             summary.append({

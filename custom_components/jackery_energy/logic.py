@@ -151,34 +151,58 @@ def power_source(solar: float | None, grid: float | None, output: float | None,
     return "idle"
 
 
+# Below this, the transfer switch's in/out difference is measurement noise.
+STS_GRID_MIN_W = 30
+
+
+def sts_grid_to_station(sts_props: dict[str, Any] | None) -> float:
+    """Grid power the Smart Transfer Switch is sending into its power station.
+
+    The switch measures grid power in (``ip``) and power out to the house circuits (``op``);
+    the difference is what is charging the 5000 Plus. Charging through the switch does not
+    show up in the station's own ``acip``.
+    """
+    if not sts_props:
+        return 0
+    ip, op = num(sts_props.get("ip")), num(sts_props.get("op"))
+    if ip is None or op is None:
+        return 0
+    g = ip - op
+    return g if g >= STS_GRID_MIN_W else 0
+
+
 def derive_device(props: dict[str, Any], capacity_wh: int | None,
                   packs: list[dict[str, Any]] | None = None,
-                  online: bool | None = True) -> dict[str, Any]:
-    """Compute derived values for a single power station."""
+                  online: bool | None = True, extra_grid: float = 0) -> dict[str, Any]:
+    """Compute derived values for a single power station.
+
+    ``extra_grid``: grid power reaching this station through a transfer switch.
+    """
     ip = num(props.get("ip"))
     op = num(props.get("op"))
     acip = num(props.get("acip"))
     rb = num(props.get("rb"))
     bs = _to_int(props.get("bs"))
 
-    grid = acip
+    grid = (acip or 0) + extra_grid if (acip is not None or extra_grid) else None
     if ip is not None:
-        solar = max(ip - (acip or 0), 0)
+        solar = max(ip - (grid or 0), 0)
     else:
         solar = num(props.get("cip"))
 
     net = ip - op if ip is not None and op is not None else None
 
-    if bs in (0, 1, 2):
-        state = BATTERY_STATES[bs]
-    elif net is None:
-        state = None
-    elif net > ACTIVE_W:
+    # Actual power flow first; the device's own "bs" flag often stays 0 while charging.
+    if net is not None and net > ACTIVE_W:
         state = "charging"
-    elif net < -ACTIVE_W:
+    elif net is not None and net < -ACTIVE_W:
         state = "discharging"
-    else:
+    elif bs in (1, 2):
+        state = BATTERY_STATES[bs]
+    elif net is not None or bs == 0:
         state = "idle"
+    else:
+        state = None
 
     capacity = capacity_wh
     stored = rb / 100 * capacity_wh if rb is not None and capacity_wh else None

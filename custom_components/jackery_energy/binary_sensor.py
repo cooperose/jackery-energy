@@ -74,15 +74,17 @@ DERIVED_BINARIES: tuple[DerivedBinaryDescription, ...] = (
                              else d["battery_state"] == "charging"),
     DerivedBinaryDescription(key="solar_active", name="Solar producing", icon="mdi:solar-power",
                              device_class=PWR, fn=_active("solar_power")),
-    DerivedBinaryDescription(key="grid_input_active", name="Grid charging",
-                             icon="mdi:transmission-tower", device_class=PWR, fn=_active("grid_input_power")),
+    DerivedBinaryDescription(key="grid_input_active", name="Charging from grid",
+                             icon="mdi:battery-charging-high", device_class=BinarySensorDeviceClass.BATTERY_CHARGING,
+                             fn=_active("grid_input_power")),
 )
 
 SYSTEM_BINARIES: tuple[DerivedBinaryDescription, ...] = (
     DerivedBinaryDescription(key="solar_active", name="Solar producing", icon="mdi:solar-power",
                              device_class=PWR, fn=_active("solar_power")),
-    DerivedBinaryDescription(key="grid_input_active", name="Grid charging",
-                             icon="mdi:transmission-tower", device_class=PWR, fn=_active("grid_charge_power")),
+    DerivedBinaryDescription(key="grid_input_active", name="Charging from grid",
+                             icon="mdi:battery-charging-high", device_class=BinarySensorDeviceClass.BATTERY_CHARGING,
+                             fn=_active("grid_charge_power")),
     DerivedBinaryDescription(key="grid_to_circuits", name="Circuits on grid",
                              icon="mdi:transmission-tower", device_class=PWR, fn=_active("grid_to_circuits_power")),
     DerivedBinaryDescription(key="on_battery", name="Running on battery", icon="mdi:home-battery",

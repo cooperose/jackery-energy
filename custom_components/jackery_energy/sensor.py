@@ -120,7 +120,7 @@ PROP_SENSORS: tuple[JackerySensorDescription, ...] = (
     JackerySensorDescription(key="de", name="Battery energy counter", icon="mdi:home-battery",
                              state_class=SensorStateClass.TOTAL_INCREASING),
     # --- Smart Transfer Switch fault block (fz)
-    JackerySensorDescription(key="pst", name="Backup-only time setting", icon="mdi:timer-outline",
+    JackerySensorDescription(key="pst", name="Backup-only time left", icon="mdi:timer-outline",
                              native_unit_of_measurement=UnitOfTime.MINUTES,
                              device_class=SensorDeviceClass.DURATION),
     JackerySensorDescription(key="fz_ec1", name="Error code 1", entity_category=_DIAG),
